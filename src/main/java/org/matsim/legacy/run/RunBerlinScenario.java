@@ -66,6 +66,9 @@ import org.matsim.run.Activities;
 import org.matsim.core.controler.OutputDirectoryHierarchy;
 import playground.vsp.scoring.IncomeDependentUtilityOfMoneyPersonScoringParameters;
 import org.matsim.simwrapper.SimWrapperConfigGroup;
+import org.matsim.simwrapper.SimWrapperModule;
+import org.matsim.simwrapper.DashboardProvider;
+import org.matsim.dashboard.BerlinDashboardProvider;
 
 import java.util.*;
 
@@ -101,6 +104,14 @@ public final class RunBerlinScenario {
 		Gbl.assertNotNull(scenario);
 
 		final Controler controler = new Controler( scenario );
+		
+		controler.addOverridingModule( new SimWrapperModule() );
+		controler.addOverridingModule( new AbstractModule() {
+			@Override
+			public void install() {
+				bind(DashboardProvider.class).to(BerlinDashboardProvider.class).asEagerSingleton();
+			}
+		});
 
 		if (controler.getConfig().transit().isUseTransit()) {
 			// use the sbb pt raptor router
