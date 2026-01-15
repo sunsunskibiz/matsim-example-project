@@ -62,7 +62,10 @@ import org.matsim.extensions.pt.routing.EnhancedRaptorIntermodalAccessEgress;
 import org.matsim.legacy.run.drt.OpenBerlinIntermodalPtDrtRouterAnalysisModeIdentifier;
 import org.matsim.legacy.run.drt.RunDrtOpenBerlinScenario;
 import org.matsim.prepare.population.AssignIncome;
+import org.matsim.run.Activities;
+import org.matsim.core.controler.OutputDirectoryHierarchy;
 import playground.vsp.scoring.IncomeDependentUtilityOfMoneyPersonScoringParameters;
+import org.matsim.simwrapper.SimWrapperConfigGroup;
 
 import java.util.*;
 
@@ -83,7 +86,7 @@ public final class RunBerlinScenario {
 		}
 
 		if ( args.length==0 ) {
-			args = new String[] {"scenarios/berlin-v5.5-10pct/input/berlin-v5.5-10pct.config.xml"}  ;
+			args = new String[] {"input/v6.4/berlin-v6.4.config.xml"}  ;
 		}
 
 		Config config = prepareConfig( args ) ;
@@ -209,10 +212,10 @@ public final class RunBerlinScenario {
 		ConfigGroup[] customModulesToAdd;
 		if (additionalInformation == RunDrtOpenBerlinScenario.AdditionalInformation.acceptUnknownParamsBerlinConfig) {
 			customModulesToAdd = new ConfigGroup[]{new BerlinExperimentalConfigGroup(true),
-					new PtExtensionsConfigGroup()};
+					new PtExtensionsConfigGroup(), new SimWrapperConfigGroup()};
 		} else {
 			customModulesToAdd = new ConfigGroup[]{new BerlinExperimentalConfigGroup(false),
-					new PtExtensionsConfigGroup()};
+					new PtExtensionsConfigGroup(), new SimWrapperConfigGroup()};
 		}
 		ConfigGroup[] customModulesAll = new ConfigGroup[customModules.length + customModulesToAdd.length];
 
@@ -248,16 +251,41 @@ public final class RunBerlinScenario {
 		config.qsim().setTrafficDynamics( TrafficDynamics.kinematicWaves );
 
 		// activities:
-		for ( long ii = 600 ; ii <= 97200; ii+=600 ) {
-			config.scoring().addActivityParams( new ActivityParams( "home_" + ii + ".0" ).setTypicalDuration( ii ) );
-			config.scoring().addActivityParams( new ActivityParams( "work_" + ii + ".0" ).setTypicalDuration( ii ).setOpeningTime(6. * 3600. ).setClosingTime(20. * 3600. ) );
-			config.scoring().addActivityParams( new ActivityParams( "leisure_" + ii + ".0" ).setTypicalDuration( ii ).setOpeningTime(9. * 3600. ).setClosingTime(27. * 3600. ) );
-			config.scoring().addActivityParams( new ActivityParams( "shopping_" + ii + ".0" ).setTypicalDuration( ii ).setOpeningTime(8. * 3600. ).setClosingTime(20. * 3600. ) );
-			config.scoring().addActivityParams( new ActivityParams( "other_" + ii + ".0" ).setTypicalDuration( ii ) );
-		}
+		// activities:
+		Activities.addScoringParams(config, true);
 		config.scoring().addActivityParams( new ActivityParams( "freight" ).setTypicalDuration( 12.*3600. ) );
 
 		ConfigUtils.applyCommandline( config, typedArgs ) ;
+
+		// --- SMOKE TEST OVERRIDES ---
+		config.controller().setLastIteration(10);
+		config.qsim().setEndTime(12 * 3600);
+		config.qsim().setMainModes(Arrays.asList(TransportMode.car));
+
+		config.qsim().setFlowCapFactor( 0.001 );
+		config.qsim().setStorageCapFactor( 0.001 );
+
+		BerlinExperimentalConfigGroup berlinCfg = ConfigUtils.addOrGetModule(config, BerlinExperimentalConfigGroup.class);
+		berlinCfg.setPopulationDownsampleFactor(0.001);
+		
+		config.controller().setOverwriteFileSetting(OutputDirectoryHierarchy.OverwriteFileSetting.deleteDirectoryIfExists);
+		
+		// Add replanning strategies (required because config says "added in code")
+		for (String subpop : Arrays.asList("person", "freight", "goodsTraffic", "commercialPersonTraffic", "commercialPersonTraffic_service")) {
+			config.replanning().addStrategySettings(
+				new org.matsim.core.config.groups.ReplanningConfigGroup.StrategySettings()
+					.setStrategyName("ChangeExpBeta")
+					.setWeight(0.85) // 85% chance to change plan (beta)
+					.setSubpopulation(subpop)
+			);
+			config.replanning().addStrategySettings(
+				new org.matsim.core.config.groups.ReplanningConfigGroup.StrategySettings()
+					.setStrategyName("ReRoute")
+					.setWeight(0.15) // 15% chance to re-route
+					.setSubpopulation(subpop)
+			);
+		}
+		// ----------------------------
 
 		return config ;
 	}
@@ -304,4 +332,3 @@ public final class RunBerlinScenario {
 	}
 
 }
-
