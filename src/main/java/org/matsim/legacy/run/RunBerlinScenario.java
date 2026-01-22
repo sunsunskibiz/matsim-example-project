@@ -57,7 +57,7 @@ import org.matsim.core.router.AnalysisMainModeIdentifier;
 import org.matsim.core.scenario.ScenarioUtils;
 import org.matsim.core.scoring.functions.ScoringParametersForPerson;
 import org.matsim.core.utils.geometry.transformations.TransformationFactory;
-import org.matsim.extensions.pt.PtExtensionsConfigGroup;
+import org.matsim.extensions.pt.routing.ptRoutingModes.PtIntermodalRoutingModesConfigGroup;
 import org.matsim.extensions.pt.routing.EnhancedRaptorIntermodalAccessEgress;
 import org.matsim.legacy.run.drt.OpenBerlinIntermodalPtDrtRouterAnalysisModeIdentifier;
 import org.matsim.legacy.run.drt.RunDrtOpenBerlinScenario;
@@ -104,7 +104,7 @@ public final class RunBerlinScenario {
 		Gbl.assertNotNull(scenario);
 
 		final Controler controler = new Controler( scenario );
-		
+
 		controler.addOverridingModule( new SimWrapperModule() );
 		controler.addOverridingModule( new AbstractModule() {
 			@Override
@@ -223,10 +223,10 @@ public final class RunBerlinScenario {
 		ConfigGroup[] customModulesToAdd;
 		if (additionalInformation == RunDrtOpenBerlinScenario.AdditionalInformation.acceptUnknownParamsBerlinConfig) {
 			customModulesToAdd = new ConfigGroup[]{new BerlinExperimentalConfigGroup(true),
-					new PtExtensionsConfigGroup(), new SimWrapperConfigGroup()};
+					new PtIntermodalRoutingModesConfigGroup(), new SimWrapperConfigGroup()};
 		} else {
 			customModulesToAdd = new ConfigGroup[]{new BerlinExperimentalConfigGroup(false),
-					new PtExtensionsConfigGroup(), new SimWrapperConfigGroup()};
+					new PtIntermodalRoutingModesConfigGroup(), new SimWrapperConfigGroup()};
 		}
 		ConfigGroup[] customModulesAll = new ConfigGroup[customModules.length + customModulesToAdd.length];
 
@@ -265,13 +265,13 @@ public final class RunBerlinScenario {
 		// activities:
 		// activities:
 		Activities.addScoringParams(config, true);
-		config.scoring().addActivityParams( new ActivityParams( "freight" ).setTypicalDuration( 12.*3600. ) );
+		config.scoring().addActivityParams( new ActivityParams( "freight" ).setTypicalDuration( 24.*3600. ) );
 
 		ConfigUtils.applyCommandline( config, typedArgs ) ;
 
 		// --- SMOKE TEST OVERRIDES ---
 		config.controller().setLastIteration(10);
-		config.qsim().setEndTime(12 * 3600);
+		config.qsim().setEndTime(24 * 3600);
 		config.qsim().setMainModes(Arrays.asList(TransportMode.car));
 
 		config.qsim().setFlowCapFactor( 0.01 );
@@ -279,11 +279,11 @@ public final class RunBerlinScenario {
 
 		BerlinExperimentalConfigGroup berlinCfg = ConfigUtils.addOrGetModule(config, BerlinExperimentalConfigGroup.class);
 		berlinCfg.setPopulationDownsampleFactor(0.01);
-		
+
 		config.counts().setCountsScaleFactor(100.0);
 
 		config.controller().setOverwriteFileSetting(OutputDirectoryHierarchy.OverwriteFileSetting.deleteDirectoryIfExists);
-		
+
 		// Add replanning strategies (required because config says "added in code")
 		for (String subpop : Arrays.asList("person", "freight", "goodsTraffic", "commercialPersonTraffic", "commercialPersonTraffic_service")) {
 			config.replanning().addStrategySettings(
