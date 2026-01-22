@@ -242,6 +242,7 @@ public final class RunBerlinScenario {
 		}
 
 		final Config config = ConfigUtils.loadConfig( args[ 0 ], customModulesAll );
+		config.global().setDefaultDelimiter(",");
 
 		config.controller().setRoutingAlgorithmType( AStarLandmarks );
 
@@ -273,12 +274,14 @@ public final class RunBerlinScenario {
 		config.qsim().setEndTime(12 * 3600);
 		config.qsim().setMainModes(Arrays.asList(TransportMode.car));
 
-		config.qsim().setFlowCapFactor( 0.001 );
-		config.qsim().setStorageCapFactor( 0.001 );
+		config.qsim().setFlowCapFactor( 0.01 );
+		config.qsim().setStorageCapFactor( 0.01 );
 
 		BerlinExperimentalConfigGroup berlinCfg = ConfigUtils.addOrGetModule(config, BerlinExperimentalConfigGroup.class);
-		berlinCfg.setPopulationDownsampleFactor(0.001);
+		berlinCfg.setPopulationDownsampleFactor(0.01);
 		
+		config.counts().setCountsScaleFactor(100.0);
+
 		config.controller().setOverwriteFileSetting(OutputDirectoryHierarchy.OverwriteFileSetting.deleteDirectoryIfExists);
 		
 		// Add replanning strategies (required because config says "added in code")
