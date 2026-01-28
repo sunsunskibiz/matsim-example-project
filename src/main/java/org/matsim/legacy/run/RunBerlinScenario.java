@@ -274,11 +274,11 @@ public final class RunBerlinScenario {
 		config.qsim().setEndTime(24 * 3600);
 		config.qsim().setMainModes(Arrays.asList(TransportMode.car));
 
-		config.qsim().setFlowCapFactor( 0.01 );
-		config.qsim().setStorageCapFactor( 0.01 );
+		config.qsim().setFlowCapFactor( 0.05 );
+		config.qsim().setStorageCapFactor( 0.05 );
 
 		BerlinExperimentalConfigGroup berlinCfg = ConfigUtils.addOrGetModule(config, BerlinExperimentalConfigGroup.class);
-		berlinCfg.setPopulationDownsampleFactor(0.01);
+		berlinCfg.setPopulationDownsampleFactor(0.05);
 
 		config.counts().setCountsScaleFactor(100.0);
 
