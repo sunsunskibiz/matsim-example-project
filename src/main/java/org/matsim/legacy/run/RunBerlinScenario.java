@@ -34,6 +34,9 @@ import org.matsim.api.core.v01.TransportMode;
 import org.matsim.api.core.v01.network.Link;
 import org.matsim.api.core.v01.population.Person;
 import org.matsim.api.core.v01.population.Plan;
+import org.matsim.api.core.v01.population.PlanElement;
+import org.matsim.api.core.v01.population.Activity;
+import org.matsim.api.core.v01.Coord;
 import org.matsim.contrib.drt.routing.DrtRoute;
 import org.matsim.contrib.drt.routing.DrtRouteFactory;
 import org.matsim.contrib.roadpricing.RoadPricing;
@@ -341,8 +344,37 @@ public final class RunBerlinScenario {
 	private static void downsample( final Map<Id<Person>, ? extends Person> map, final double sample ) {
 		final Random rnd = MatsimRandom.getLocalInstance();
 		log.warn( "Population downsampled from " + map.size() + " agents." ) ;
-		map.values().removeIf( person -> rnd.nextDouble() > sample ) ;
+		// Hybrid downsampling: 100% inside Mitte, 'sample' (e.g. 5%) outside
+		map.values().removeIf( person -> {
+			if (isPersonInZone(person)) {
+				return false; // Keep 100%
+			} else {
+				return rnd.nextDouble() > sample;
+			}
+		});
 		log.warn( "Population downsampled to " + map.size() + " agents." ) ;
+	}
+
+	private static boolean isPersonInZone(Person person) {
+		// Bounding Box for Berlin Mitte (approx. GK4)
+		final double minX = 4592000;
+		final double maxX = 4600000;
+		final double minY = 5818000;
+		final double maxY = 5826000;
+
+		for (Plan plan : person.getPlans()) {
+			for (PlanElement pe : plan.getPlanElements()) {
+				if (pe instanceof Activity) {
+					Coord coord = ((Activity) pe).getCoord();
+					if (coord != null &&
+						coord.getX() >= minX && coord.getX() <= maxX &&
+						coord.getY() >= minY && coord.getY() <= maxY) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
 	}
 
 }
