@@ -26,6 +26,7 @@ import tech.tablesaw.columns.Column;
 import tech.tablesaw.io.csv.CsvReadOptions;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.util.List;
 import java.util.Map;
 
@@ -83,17 +84,30 @@ public class TravelTimeComparison implements MATSimAppCommand {
 
 		for (Row row : data) {
 			LeastCostPathCalculator.Path congested = computePath(network, congestedRouter, row);
+			if (congested == null) {
+				row.setDouble("simulated", Double.NaN);
+				row.setDouble("free_flow", Double.NaN);
+				continue;
+			}
 			double dist = congested.links.stream().mapToDouble(Link::getLength).sum();
 			double speed = 3.6 * dist / congested.travelTime;
 
 			row.setDouble("simulated", speed);
 
 			LeastCostPathCalculator.Path freeflow = computePath(network, freeflowRouter, row);
+			if (freeflow == null) {
+				row.setDouble("simulated", Double.NaN);
+				row.setDouble("free_flow", Double.NaN);
+				continue;
+			}
 			dist = freeflow.links.stream().mapToDouble(Link::getLength).sum();
 			speed = 3.6 * dist / freeflow.travelTime;
 
 			row.setDouble("free_flow", speed);
 		}
+		
+		// Drop rows where calculation failed (due to missing nodes)
+		data = data.dropWhere(data.doubleColumn("simulated").isMissing());
 
 		data.addColumns(
 			data.doubleColumn("simulated").subtract(data.doubleColumn("mean")).setName("bias")
@@ -101,7 +115,11 @@ public class TravelTimeComparison implements MATSimAppCommand {
 
 		data.addColumns(data.doubleColumn("bias").abs().setName("abs_error"));
 
-		data.write().csv(output.getPath("travel_time_comparison_by_route.csv").toFile());
+		File routeFile = output.getPath("travel_time_comparison_by_route.csv").toFile();
+		if (routeFile.isDirectory()) {
+			routeFile = new File(routeFile, "travel_time_comparison_by_route.csv");
+		}
+		data.write().csv(routeFile);
 
 		List<String> columns = List.of("min", "max", "mean", "std", "simulated", "free_flow", "bias", "abs_error");
 
@@ -113,7 +131,11 @@ public class TravelTimeComparison implements MATSimAppCommand {
 				column.setName(name.substring(6, name.length() - 1));
 		}
 
-		aggr.write().csv(output.getPath("travel_time_comparison_by_hour.csv").toFile());
+		File hourFile = output.getPath("travel_time_comparison_by_hour.csv").toFile();
+		if (hourFile.isDirectory()) {
+			hourFile = new File(hourFile, "travel_time_comparison_by_hour.csv");
+		}
+		aggr.write().csv(hourFile);
 
 		return 0;
 	}
@@ -121,6 +143,8 @@ public class TravelTimeComparison implements MATSimAppCommand {
 	private LeastCostPathCalculator.Path computePath(Network network, LeastCostPathCalculator router, Row row) {
 		Node fromNode = network.getNodes().get(Id.createNodeId(row.getString("from_node")));
 		Node toNode = network.getNodes().get(Id.createNodeId(row.getString("to_node")));
+
+		if (fromNode == null || toNode == null) return null;
 
 		return router.calcLeastCostPath(fromNode, toNode, row.getInt("hour") * 3600, null, null);
 	}

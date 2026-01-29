@@ -28,6 +28,8 @@ import org.apache.logging.log4j.Logger;
 import org.matsim.analysis.linkpaxvolumes.LinkPaxVolumesAnalysisModule;
 import org.matsim.analysis.personMoney.PersonMoneyEventsAnalysisModule;
 import org.matsim.analysis.pt.stop2stop.PtStop2StopAnalysisModule;
+import org.matsim.analysis.TravelTimeComparison;
+import java.io.File;
 import org.matsim.api.core.v01.Id;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.api.core.v01.TransportMode;
@@ -99,6 +101,53 @@ public final class RunBerlinScenario {
 		Scenario scenario = prepareScenario( config ) ;
 		Controler controler = prepareControler( scenario ) ;
 		controler.run();
+
+		// Post-processing: Travel Time Analysis
+		String outputDir = controler.getConfig().controller().getOutputDirectory();
+		String runId = controler.getConfig().controller().getRunId();
+		if (runId == null) runId = ""; // RunId can be null/empty
+
+		String networkFile = outputDir + "/" + runId + ".output_network.xml.gz";
+		String eventsFile = outputDir + "/" + runId + ".output_events.xml.gz";
+		// Handle case where runId is empty and format might be just ".output_..." which is usually "output_..."
+		if(runId.isEmpty()) {
+			networkFile = outputDir + "/output_network.xml.gz";
+			eventsFile = outputDir + "/output_events.xml.gz";
+		}
+
+		// Check for method to get iteration filename if possible, but hardcoding standard output structure is usually fine for this script.
+
+		// Reference file logic
+		String refFile = "input/v6.4/berlin-v6.4-routes-ref.csv.gz";
+		if (!new File(refFile).exists()) {
+			log.warn("Reference file " + refFile + " not found. Falling back to v6.2.");
+			refFile = "input/v6.2/berlin-v6.2-routes-ref.csv.gz";
+		}
+
+		if (new File(refFile).exists()) {
+			log.info("Running TravelTimeComparison with reference file: " + refFile);
+			// TravelTimeComparison args: --network <net> --events <events> --input-ref <ref> --output <outDir>
+			// But TravelTimeComparison uses InputOptions/OutputOptions.
+			// InputOptions: --network, --events
+			// OutputOptions: --output
+			
+			// We need to put the output in a subdir usually expected by SimWrapper?
+			// SimWrapper usually looks in "analysis/traveltime/..." or the root?
+			// The error said "Error loading analysis/traveltime/travel_time_comparison_by_route.csv"
+			// So we should output to outputDir + "/analysis/traveltime"
+
+			String analysisDir = outputDir + "/analysis/traveltime";
+			new File(analysisDir).mkdirs();
+
+			new TravelTimeComparison().execute(
+				"--network", networkFile,
+				"--events", eventsFile,
+				"--input-ref", refFile,
+				"--output", analysisDir
+			);
+		} else {
+			log.error("No route reference file found. TravelTimeComparison cannot run.");
+		}
 	}
 
 	public static Controler prepareControler( Scenario scenario ) {
@@ -277,13 +326,13 @@ public final class RunBerlinScenario {
 		config.qsim().setEndTime(24 * 3600);
 		config.qsim().setMainModes(Arrays.asList(TransportMode.car));
 
-		config.qsim().setFlowCapFactor( 0.05 );
-		config.qsim().setStorageCapFactor( 0.05 );
+		config.qsim().setFlowCapFactor( 1.0 );
+		config.qsim().setStorageCapFactor( 1.0 );
 
 		BerlinExperimentalConfigGroup berlinCfg = ConfigUtils.addOrGetModule(config, BerlinExperimentalConfigGroup.class);
-		berlinCfg.setPopulationDownsampleFactor(0.05);
+		berlinCfg.setPopulationDownsampleFactor(0.10);
 
-		config.counts().setCountsScaleFactor(100.0);
+		config.counts().setCountsScaleFactor(1.0);
 
 		config.controller().setOverwriteFileSetting(OutputDirectoryHierarchy.OverwriteFileSetting.deleteDirectoryIfExists);
 
